@@ -112,6 +112,7 @@
     background: radial-gradient(circle at 50% 0%, rgba(0,212,255,0.06), transparent 70%);
     opacity: 0;
     transition: opacity 0.3s;
+    pointer-events: none;
   }
 
   .upload-zone:hover, .upload-zone.drag-over {
@@ -367,7 +368,7 @@
       <div class="upload-icon">📂</div>
       <h2>Drop your trade history CSV</h2>
       <p>Supports TradeZero-format exports with Net Proceeds column</p>
-      <button class="btn" onclick="document.getElementById('file-input').click()">Choose File</button>
+      <button class="btn" id="choose-btn">Choose File</button>
       <input type="file" id="file-input" accept=".csv">
     </div>
     <div id="status"></div>
@@ -395,7 +396,7 @@
       </table>
     </div>
 
-    <button class="reset-btn" onclick="resetDashboard()">← Upload New File</button>
+    <button class="reset-btn" id="reset-btn">← Upload New File</button>
   </div>
 
 </div>
@@ -605,17 +606,25 @@ function processFile(file) {
   reader.readAsText(file);
 }
 
-document.getElementById('file-input').addEventListener('change', e => {
-  processFile(e.target.files[0]);
-});
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('choose-btn').addEventListener('click', () => {
+    document.getElementById('file-input').click();
+  });
 
-const drop = document.getElementById('drop-zone');
-drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag-over'); });
-drop.addEventListener('dragleave', () => drop.classList.remove('drag-over'));
-drop.addEventListener('drop', e => {
-  e.preventDefault();
-  drop.classList.remove('drag-over');
-  processFile(e.dataTransfer.files[0]);
+  document.getElementById('file-input').addEventListener('change', e => {
+    processFile(e.target.files[0]);
+  });
+
+  const drop = document.getElementById('drop-zone');
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag-over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('drag-over'));
+  drop.addEventListener('drop', e => {
+    e.preventDefault();
+    drop.classList.remove('drag-over');
+    processFile(e.dataTransfer.files[0]);
+  });
+
+  document.getElementById('reset-btn').addEventListener('click', resetDashboard);
 });
 
 function resetDashboard() {
