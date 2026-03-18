@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TradeMetrics — Performance Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080c14;
+    --surface: #0d1320;
+    --surface2: #111827;
+    --border: #1e2d45;
+    --accent: #00d4ff;
+    --green: #00e5a0;
+    --red: #ff4560;
+    --gold: #f5a623;
+    --text: #e2e8f0;
+    --muted: #4a5568;
+    --mono: 'Space Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid noise background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 48px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 24px;
+  }
+
+  .logo-icon {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, var(--accent), var(--green));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 700;
+    color: #080c14;
+    flex-shrink: 0;
+  }
+
+  header h1 {
+    font-family: var(--mono);
+    font-size: 22px;
+    letter-spacing: -0.5px;
+    color: var(--text);
+  }
+
+  header p {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 2px;
+    font-weight: 300;
+  }
+
+  /* Upload zone */
+  #upload-section {
+    margin-bottom: 48px;
+  }
+
+  .upload-zone {
+    border: 1.5px dashed var(--border);
+    border-radius: 16px;
+    padding: 56px 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: var(--surface);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .upload-zone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 0%, rgba(0,212,255,0.06), transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--accent);
+  }
+
+  .upload-zone:hover::before, .upload-zone.drag-over::before {
+    opacity: 1;
+  }
+
+  .upload-icon {
+    font-size: 36px;
+    margin-bottom: 16px;
+    opacity: 0.6;
+  }
+
+  .upload-zone h2 {
+    font-size: 18px;
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+
+  .upload-zone p {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 300;
+  }
+
+  .upload-zone .btn {
+    display: inline-block;
+    margin-top: 20px;
+    padding: 10px 24px;
+    background: linear-gradient(135deg, var(--accent), var(--green));
+    color: #080c14;
+    border-radius: 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    border: none;
+    transition: opacity 0.2s;
+  }
+
+  .upload-zone .btn:hover { opacity: 0.85; }
+
+  #file-input { display: none; }
+
+  /* Status bar */
+  #status {
+    margin-top: 16px;
+    font-size: 13px;
+    color: var(--muted);
+    font-family: var(--mono);
+    min-height: 20px;
+    text-align: center;
+  }
+
+  #status.success { color: var(--green); }
+  #status.error { color: var(--red); }
+
+  /* Dashboard */
+  #dashboard { display: none; }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    margin-top: 40px;
+  }
+
+  /* Metrics grid */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+
+  @media (max-width: 700px) {
+    .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (max-width: 440px) {
+    .metrics-grid { grid-template-columns: 1fr; }
+  }
+
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 22px;
+    position: relative;
+    overflow: hidden;
+    animation: fadeUp 0.4s ease both;
+  }
+
+  .metric-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent-line, var(--border)), transparent);
+    opacity: 0.6;
+  }
+
+  .metric-card.green { --accent-line: var(--green); }
+  .metric-card.red { --accent-line: var(--red); }
+  .metric-card.gold { --accent-line: var(--gold); }
+  .metric-card.blue { --accent-line: var(--accent); }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .metric-card:nth-child(1) { animation-delay: 0.05s; }
+  .metric-card:nth-child(2) { animation-delay: 0.1s; }
+  .metric-card:nth-child(3) { animation-delay: 0.15s; }
+  .metric-card:nth-child(4) { animation-delay: 0.2s; }
+  .metric-card:nth-child(5) { animation-delay: 0.25s; }
+  .metric-card:nth-child(6) { animation-delay: 0.3s; }
+  .metric-card:nth-child(7) { animation-delay: 0.35s; }
+  .metric-card:nth-child(8) { animation-delay: 0.4s; }
+  .metric-card:nth-child(9) { animation-delay: 0.45s; }
+  .metric-card:nth-child(10) { animation-delay: 0.5s; }
+  .metric-card:nth-child(11) { animation-delay: 0.55s; }
+  .metric-card:nth-child(12) { animation-delay: 0.6s; }
+
+  .metric-label {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-family: var(--mono);
+    margin-bottom: 10px;
+  }
+
+  .metric-value {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .metric-value.green { color: var(--green); }
+  .metric-value.red { color: var(--red); }
+  .metric-value.gold { color: var(--gold); }
+  .metric-value.white { color: var(--text); }
+  .metric-value.blue { color: var(--accent); }
+
+  .metric-sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 6px;
+    font-weight: 300;
+  }
+
+  /* Daily table */
+  .table-wrap {
+    overflow-x: auto;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead tr {
+    border-bottom: 1px solid var(--border);
+  }
+
+  th {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 14px 18px;
+    text-align: left;
+    font-weight: 400;
+  }
+
+  td {
+    padding: 13px 18px;
+    border-bottom: 1px solid rgba(30,45,69,0.5);
+    font-weight: 300;
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  tbody tr {
+    transition: background 0.15s;
+  }
+
+  tbody tr:hover { background: var(--surface2); }
+
+  .tag {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .tag.win { background: rgba(0,229,160,0.12); color: var(--green); }
+  .tag.loss { background: rgba(255,69,96,0.12); color: var(--red); }
+
+  .pnl-pos { color: var(--green); font-family: var(--mono); }
+  .pnl-neg { color: var(--red); font-family: var(--mono); }
+
+  .reset-btn {
+    display: inline-block;
+    margin-top: 32px;
+    padding: 10px 22px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .reset-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <header>
+    <div class="logo-icon">T/</div>
+    <div>
+      <h1>TradeMetrics</h1>
+      <p>Upload your broker CSV · Get full performance analytics instantly</p>
+    </div>
+  </header>
+
+  <div id="upload-section">
+    <div class="upload-zone" id="drop-zone">
+      <div class="upload-icon">📂</div>
+      <h2>Drop your trade history CSV</h2>
+      <p>Supports TradeZero-format exports with Net Proceeds column</p>
+      <button class="btn" onclick="document.getElementById('file-input').click()">Choose File</button>
+      <input type="file" id="file-input" accept=".csv">
+    </div>
+    <div id="status"></div>
+  </div>
+
+  <div id="dashboard">
+    <div class="section-label">Performance Metrics</div>
+    <div class="metrics-grid" id="metrics-grid"></div>
+
+    <div class="section-label" style="margin-top:48px">Daily Breakdown</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Symbols</th>
+            <th>Trades</th>
+            <th>Gross</th>
+            <th>Net P&L</th>
+            <th>Return %</th>
+            <th>Result</th>
+          </tr>
+        </thead>
+        <tbody id="daily-table"></tbody>
+      </table>
+    </div>
+
+    <button class="reset-btn" onclick="resetDashboard()">← Upload New File</button>
+  </div>
+
+</div>
+
+<script>
+// ─── CSV Parser ───────────────────────────────────────────────────────────────
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+  return lines.slice(1).map(line => {
+    const vals = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+    const row = {};
+    headers.forEach((h, i) => row[h] = vals[i] || '');
+    return row;
+  });
+}
+
+// ─── Main Calc ────────────────────────────────────────────────────────────────
+function calculate(rows) {
+  // Group by T/D date
+  const byDate = {};
+  rows.forEach(r => {
+    const date = r['T/D'];
+    if (!date) return;
+    if (!byDate[date]) byDate[date] = [];
+    byDate[date].push(r);
+  });
+
+  const dates = Object.keys(byDate).sort();
+
+  // Per-day stats
+  const days = dates.map(date => {
+    const trades = byDate[date];
+    const net = trades.reduce((s, r) => s + parseFloat(r['Net Proceeds'] || 0), 0);
+    const gross = trades.reduce((s, r) => s + parseFloat(r['Gross Proceeds'] || 0), 0);
+    const symbols = [...new Set(trades.map(r => r['Symbol']).filter(Boolean))];
+    return { date, net, gross, trades: trades.length, symbols };
+  });
+
+  // Running balance starting from $0 (relative)
+  // We'll compute return % relative to a simulated starting balance
+  // Starting balance: derive from context — use net cumulative
+  // For return %, use balance BEFORE that day's net
+  let runBal = 0;
+  const dayDetails = days.map(d => {
+    const retPct = runBal !== 0 ? (d.net / Math.abs(runBal)) * 100 : 0;
+    runBal += d.net;
+    return { ...d, retPct, balAfter: runBal };
+  });
+
+  const totalNet = days.reduce((s, d) => s + d.net, 0);
+  const totalGross = days.reduce((s, d) => s + d.gross, 0);
+  const wins = days.filter(d => d.net > 0);
+  const losses = days.filter(d => d.net <= 0);
+  const winRate = days.length > 0 ? (wins.length / days.length) * 100 : 0;
+
+  const bestDay = days.reduce((a, b) => b.net > a.net ? b : a, days[0]);
+  const worstDay = days.reduce((a, b) => b.net < a.net ? b : a, days[0]);
+
+  const avgWin = wins.length > 0 ? wins.reduce((s, d) => s + d.net, 0) / wins.length : 0;
+  const avgLoss = losses.length > 0 ? Math.abs(losses.reduce((s, d) => s + d.net, 0) / losses.length) : 0;
+  const winLossRatio = avgLoss !== 0 ? avgWin / avgLoss : 0;
+
+  const grossWins = wins.reduce((s, d) => s + d.net, 0);
+  const grossLosses = Math.abs(losses.reduce((s, d) => s + d.net, 0));
+  const profitFactor = grossLosses !== 0 ? grossWins / grossLosses : grossWins > 0 ? Infinity : 0;
+
+  const avgReturn = days.length > 0 ? totalNet / days.length : 0;
+
+  // Sharpe (simplified daily): mean / stdev of daily returns
+  const mean = avgReturn;
+  const variance = days.reduce((s, d) => s + Math.pow(d.net - mean, 2), 0) / days.length;
+  const stddev = Math.sqrt(variance);
+  const sharpe = stddev !== 0 ? (mean / stddev) * Math.sqrt(252) : 0;
+
+  // Max drawdown (in dollar terms from peak)
+  let peak = 0, bal = 0, maxDD = 0;
+  days.forEach(d => {
+    bal += d.net;
+    if (bal > peak) peak = bal;
+    const dd = peak > 0 ? ((peak - bal) / peak) * 100 : 0;
+    if (dd > maxDD) maxDD = dd;
+  });
+
+  // Calmar: annualized return / max drawdown
+  const annualizedReturn = (totalNet / days.length) * 252;
+  const calmar = maxDD !== 0 ? (annualizedReturn / (maxDD / 100 * Math.abs(totalNet + 1))) : 0;
+
+  // Expectancy
+  const expectancy = (winRate / 100) * avgWin - ((1 - winRate / 100) * avgLoss);
+
+  // Kelly
+  const w = winRate / 100;
+  const r = avgLoss !== 0 ? avgWin / avgLoss : 0;
+  const kelly = r !== 0 ? (w - (1 - w) / r) * 100 : 0;
+
+  // Max consecutive wins
+  let maxConsec = 0, cur = 0;
+  days.forEach(d => {
+    if (d.net > 0) { cur++; maxConsec = Math.max(maxConsec, cur); }
+    else cur = 0;
+  });
+
+  // Recovery factor
+  const recoveryFactor = maxDD !== 0 ? totalNet / (maxDD / 100) : 0;
+
+  return {
+    days: dayDetails,
+    totalNet, totalGross,
+    wins: wins.length, losses: losses.length,
+    winRate, bestDay, worstDay,
+    avgReturn, winLossRatio, profitFactor,
+    sharpe, calmar, maxDD, expectancy, kelly, maxConsec,
+    recoveryFactor
+  };
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function fmt(n, dec = 2) {
+  return (n >= 0 ? '+' : '') + n.toFixed(dec);
+}
+
+function fmtDollar(n) {
+  return (n >= 0 ? '+$' : '-$') + Math.abs(n).toFixed(2);
+}
+
+function render(m) {
+  const totalPct = m.days.length > 0
+    ? (m.totalNet / (Math.abs(m.totalNet - m.days.reduce((s,d)=>s+d.net,0)) + 0.01)) * 100
+    : 0;
+
+  const metrics = [
+    { label: 'Total Net P&L', value: fmtDollar(m.totalNet), cls: m.totalNet >= 0 ? 'green' : 'red', card: m.totalNet >= 0 ? 'green' : 'red' },
+    { label: 'Win Rate', value: m.winRate.toFixed(1) + '%', sub: `${m.wins}W / ${m.losses}L`, cls: 'white', card: 'blue' },
+    { label: 'Best Day', value: fmtDollar(m.bestDay.net), sub: m.bestDay.date, cls: 'green', card: 'green' },
+    { label: 'Worst Day', value: fmtDollar(m.worstDay.net), sub: m.worstDay.date, cls: 'red', card: 'red' },
+    { label: 'Avg Daily Return', value: fmtDollar(m.avgReturn), cls: m.avgReturn >= 0 ? 'green' : 'red', card: m.avgReturn >= 0 ? 'green' : 'red' },
+    { label: 'Win / Loss Ratio', value: m.winLossRatio.toFixed(2) + ':1', cls: 'white', card: 'blue' },
+    { label: 'Profit Factor', value: isFinite(m.profitFactor) ? m.profitFactor.toFixed(2) : '∞', cls: 'green', card: 'green' },
+    { label: 'Sharpe Ratio', value: m.sharpe.toFixed(2), cls: m.sharpe >= 1 ? 'green' : 'gold', card: m.sharpe >= 1 ? 'green' : 'gold' },
+    { label: 'Max Drawdown', value: '-' + m.maxDD.toFixed(2) + '%', cls: 'red', card: 'red' },
+    { label: 'Expectancy', value: fmtDollar(m.expectancy) + '/trade', cls: m.expectancy >= 0 ? 'green' : 'red', card: m.expectancy >= 0 ? 'green' : 'red' },
+    { label: 'Kelly Criterion', value: Math.max(0, m.kelly).toFixed(1) + '%', cls: 'white', card: 'blue' },
+    { label: 'Max Consec. Wins', value: m.maxConsec + ' days', cls: 'green', card: 'green' },
+  ];
+
+  const grid = document.getElementById('metrics-grid');
+  grid.innerHTML = '';
+  metrics.forEach(mt => {
+    grid.innerHTML += `
+      <div class="metric-card ${mt.card}">
+        <div class="metric-label">${mt.label}</div>
+        <div class="metric-value ${mt.cls}">${mt.value}</div>
+        ${mt.sub ? `<div class="metric-sub">${mt.sub}</div>` : ''}
+      </div>
+    `;
+  });
+
+  const tbody = document.getElementById('daily-table');
+  tbody.innerHTML = '';
+  m.days.forEach(d => {
+    const isWin = d.net >= 0;
+    tbody.innerHTML += `
+      <tr>
+        <td style="font-family:var(--mono);font-size:12px">${d.date}</td>
+        <td>${d.symbols.join(', ')}</td>
+        <td>${d.trades}</td>
+        <td class="${d.gross >= 0 ? 'pnl-pos' : 'pnl-neg'}">${fmtDollar(d.gross)}</td>
+        <td class="${isWin ? 'pnl-pos' : 'pnl-neg'}" style="font-weight:600">${fmtDollar(d.net)}</td>
+        <td class="${isWin ? 'pnl-pos' : 'pnl-neg'}">${d.retPct !== 0 ? fmt(d.retPct) + '%' : '—'}</td>
+        <td><span class="tag ${isWin ? 'win' : 'loss'}">${isWin ? 'WIN' : 'LOSS'}</span></td>
+      </tr>
+    `;
+  });
+
+  document.getElementById('dashboard').style.display = 'block';
+  document.getElementById('upload-section').style.display = 'none';
+}
+
+// ─── File Handling ────────────────────────────────────────────────────────────
+function processFile(file) {
+  const status = document.getElementById('status');
+  if (!file || !file.name.endsWith('.csv')) {
+    status.textContent = '✗ Please upload a .csv file';
+    status.className = 'error';
+    return;
+  }
+  status.textContent = 'Parsing...';
+  status.className = '';
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const rows = parseCSV(e.target.result);
+      if (!rows[0] || !rows[0]['Net Proceeds']) {
+        throw new Error('Missing "Net Proceeds" column — check your CSV format');
+      }
+      const metrics = calculate(rows);
+      render(metrics);
+      status.textContent = `✓ Loaded ${rows.length} trades across ${metrics.days.length} trading days`;
+      status.className = 'success';
+    } catch (err) {
+      status.textContent = '✗ ' + err.message;
+      status.className = 'error';
+    }
+  };
+  reader.readAsText(file);
+}
+
+document.getElementById('file-input').addEventListener('change', e => {
+  processFile(e.target.files[0]);
+});
+
+const drop = document.getElementById('drop-zone');
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag-over'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('drag-over'));
+drop.addEventListener('drop', e => {
+  e.preventDefault();
+  drop.classList.remove('drag-over');
+  processFile(e.dataTransfer.files[0]);
+});
+
+function resetDashboard() {
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('upload-section').style.display = 'block';
+  document.getElementById('file-input').value = '';
+  document.getElementById('status').textContent = '';
+}
+</script>
+</body>
+</html>
